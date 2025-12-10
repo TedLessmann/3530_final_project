@@ -1,69 +1,50 @@
 #!/bin/bash
 
-# Select date using Zenity calender picker and store into a variable
-# check to make sure date was selected
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+job=$(zenity --list \
+    --title="Select Job" \
+    --column="Script" \
+    "create_backup.sh" \
+    "update_packages.sh" \
+    "update_network.sh")
 
+[[ -z "$job" ]] && exit 1
 
+date=$(zenity --calendar --date-format="%m %d %Y")
+[[ -z "$date" ]] && exit 1
 
-# Select time (12-hour format) with zenity using --entry with HH:MM format and store into a variable
-# check to make sure a valid format was entered
+time=$(zenity --entry --text="Enter time (HH:MM)")
+[[ -z "$time" ]] && exit 1
 
+ampm=$(zenity --list --column="Choice" "AM" "PM")
+[[ -z "$ampm" ]] && exit 1
 
+IFS=: read hh mm <<< "$time"
+if [[ "$ampm" == "PM" && "$hh" != "12" ]]; then
+    hh=$((10#$hh + 12))
+elif [[ "$ampm" == "AM" && "$hh" == "12" ]]; then
+    hh=0
+fi
 
+read month day year <<< "$date"
 
-# Select AM or PM with zenity --list and check to make sure it was selected
+schedule=$(zenity --list --column="Schedule" \
+    "Daily" \
+    "Weekly" \
+    "Monthly" \
+    "Yearly")
 
+case "$schedule" in
+    Daily) cron="$mm $hh * * *" ;;
+    Weekly) cron="$mm $hh * * 1" ;;
+    Monthly) cron="$mm $hh $day * *" ;;
+    Yearly) cron="$mm $hh $day $month *" ;;
+    *) exit 1 ;;
+esac
 
+( crontab -l 2>/dev/null; \
+  echo "$cron DISPLAY=:0 XAUTHORITY=/home/$USER/.Xauthority /bin/bash $SCRIPT_DIR/$job" ) | crontab -
 
-# Convert 12-hour time to 24-hour time
-# store the hour in a variable for hour
-# store the minutes in a variable for minutes
-
-
-
-
-
-# Select script file using zenity and store it in a variable
-# check to make sure it was selected 
-
-
-
-# Ask if the scheduled script needs DISPLAY and XAUTHORITY variables
-# if you choose to use zenity to choose your files on the create_backup.sh you
-# will need to use the display. Since the cronjob will run in the background
-# you can use the DISPLAY and the XAURHORITY to display your gui
-# use display="DISPLAY=:0" and xauthority="XAUTHORITY=/home/$USER/.Xauthority"
-# to use your display
-
-
-
-# Select repetition schedule using Zenity --list and --column will be 
-# Once a day, Once a week, Once a month, Once a year
-
-
-
-
-# Calculate day and month for the initial run and store
-# in a variable into day and variable for month
-
-
-
-
-# Use a case to define cron job schedule based on user's selection
-# of the repetition selected from your Zenity list
-# each selection would store in a variable the syntax for
-# Every day at the selected time "$minute $hour * * *"
-# Every week on the selected day of the week "$minute $hour * * $weekday"
-# Every month on the selected day"$minute $hour $day * *"
-# Every year on the selected date "$minute $hour $day $month *"
-
-
-
-
-
-# Add the cron job using the variable that was created in the case and the display as well as the script
-
-
-# Show confirmation
+zenity --info --text="Cron job scheduled!"
 
